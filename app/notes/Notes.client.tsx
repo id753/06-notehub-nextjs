@@ -1,0 +1,70 @@
+"use client";
+import styles from "./NotesPage.module.css";
+import { useState } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useDebouncedCallback } from "use-debounce";
+import { fetchNotes, NoteData } from "@/lib/api";
+
+import NoteList from "../../components/NoteList/NoteList";
+// import Loader from "../../components/Loader/Loader";
+// import ErrorMessage from "../../components/ErrorMessage/ErrorMessage";
+import Pagination from "../../components/Pagination/Pagination";
+import Modal from "../../components/Modal/Modal";
+import SearchBox from "../../components/SearchBox/SearchBox";
+
+export default function NotesClient() {
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [search, setSearch] = useState<string>("");
+
+  const { data, isLoading } = useQuery<NoteData>({
+    queryKey: ["notes", currentPage, search],
+    queryFn: () => fetchNotes(currentPage, search),
+    placeholderData: keepPreviousData,
+  });
+
+  const notes = data?.notes || [];
+  const totalPages = data?.totalPages || 0;
+
+  const debounceSearch = useDebouncedCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setSearch(event.target.value.toLowerCase());
+      setCurrentPage(1);
+    },
+    300
+  );
+
+  return (
+    <div className={styles.app}>
+      <header className={styles.toolbar}>
+        <SearchBox search={search} onChange={debounceSearch} />
+        {totalPages > 1 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        )}
+        <button onClick={() => setIsModalOpen(true)} className={styles.button}>
+          Create note +
+        </button>
+      </header>
+
+      {/* {isLoading && <Loader />}
+      {isError && <ErrorMessage />} */}
+
+      {notes.length > 0 ? (
+        <NoteList notes={notes} />
+      ) : (
+        !isLoading && <p>Заметки не найдены.</p>
+      )}
+
+      {isModalOpen && (
+        <Modal
+          onClose={() => setIsModalOpen(false)}
+          onPageChange={setCurrentPage}
+        />
+      )}
+    </div>
+  );
+}
